@@ -1,46 +1,51 @@
 import streamlit as st
-import json
 import random
 import string
 import time
+import hashlib
 
-# ── Config ──────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="SyncUp",
-    page_icon="⚡",
-    layout="centered",
-    initial_sidebar_state="collapsed",
+    page_title="SyncUp", page_icon="⚡",
+    layout="centered", initial_sidebar_state="collapsed",
 )
 
-# ── Supabase client (cached) ─────────────────────────────────────────────────
+# ── Supabase ──────────────────────────────────────────────────────────────────
 @st.cache_resource
 def get_sb():
     from supabase import create_client
-    return create_client(
-        st.secrets["SUPABASE_URL"],
-        st.secrets["SUPABASE_KEY"],
-    )
+    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
-# ── Data layer ───────────────────────────────────────────────────────────────
-
-def load_session(code: str):
-    """Return session dict or None."""
+# ── Data layer ────────────────────────────────────────────────────────────────
+def load_session(code):
     try:
         r = get_sb().table("sessions").select("*").eq("code", code).execute()
         if r.data:
             row = r.data[0]
-            return {"topic": row["topic"], "members": row["members"] or []}
+            return {
+                "topic":       row["topic"],
+                "members":     row.get("members") or [],
+                "timer_state": row.get("timer_state"),
+            }
     except Exception as e:
         st.error(f"DB error: {e}")
     return None
 
+def load_timer_only(code):
+    """Lightweight fetch — only timer_state + member count."""
+    try:
+        r = get_sb().table("sessions").select("timer_state,members").eq("code", code).execute()
+        if r.data:
+            row = r.data[0]
+            return row.get("timer_state"), len(row.get("members") or [])
+    except Exception:
+        pass
+    return None, 0
 
-def create_session(code: str, topic: str):
+def create_session(code, topic):
     try:
         get_sb().table("sessions").insert({
-            "code": code,
-            "topic": topic,
-            "members": [],
+            "code": code, "topic": topic,
+            "members": [], "timer_state": None,
             "created_at": int(time.time()),
         }).execute()
         return True
@@ -48,13 +53,10 @@ def create_session(code: str, topic: str):
         st.error(f"DB error: {e}")
         return False
 
-
-def add_member(code: str, member: dict):
-    """Add / replace member entry (upsert by nama)."""
+def add_member(code, member):
     try:
         sess = load_session(code)
-        if not sess:
-            return False
+        if not sess: return False
         members = [m for m in sess["members"] if m.get("nama") != member["nama"]]
         members.append(member)
         get_sb().table("sessions").update({"members": members}).eq("code", code).execute()
@@ -63,55 +65,69 @@ def add_member(code: str, member: dict):
         st.error(f"DB error: {e}")
         return False
 
+def save_timer(code, state):
+    try:
+        get_sb().table("sessions").update({"timer_state": state}).eq("code", code).execute()
+    except Exception as e:
+        st.error(f"DB error: {e}")
 
 def gen_code():
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
 
+# ── Role resolver (no duplicates) ─────────────────────────────────────────────
+FALLBACK_ROLES = ["Moderator", "Notulen", "Timekeeper", "Summarizer", "Reviewer", "Flexible"]
 
-# ── Agenda generator ─────────────────────────────────────────────────────────
+def resolve_roles(members):
+    if not members: return {}
+    seed = "".join(sorted(m.get("nama", "") for m in members))
+    rng  = random.Random(int(hashlib.md5(seed.encode()).hexdigest(), 16))
+    assigned, used = {}, set()
+    for m in members:
+        r = (m.get("role") or "Flexible").strip()
+        if r not in used:
+            assigned[m["nama"]] = r
+            used.add(r)
+        else:
+            avail = [x for x in FALLBACK_ROLES if x not in used] or ["Flexible"]
+            nr = rng.choice(avail)
+            assigned[m["nama"]] = nr
+            used.add(nr)
+    return assigned
 
+# ── Agenda builder ────────────────────────────────────────────────────────────
 def build_agenda(sess):
-    members   = sess.get("members", [])
-    prioritas, kendala, roles = [], [], {}
+    members = sess.get("members", [])
+    prioritas, kendala = [], []
     max_waktu = 60
 
     for m in members:
         if m.get("bahas"):   prioritas.append(m["bahas"])
         if m.get("kendala"): kendala.append(m["kendala"])
-        if m.get("nama") and m.get("role"):
-            roles[m["nama"]] = m["role"]
-        try:
-            max_waktu = max(max_waktu, int(m.get("waktu", 60)))
-        except Exception:
-            pass
+        try: max_waktu = max(max_waktu, int(m.get("waktu", 60)))
+        except: pass
 
     prioritas = list(dict.fromkeys(prioritas))
     kendala   = list(dict.fromkeys(kendala))
 
-    if max_waktu >= 90:
-        alur = [
-            {"label": "Pembagian tugas & orientasi", "menit": 10},
-            {"label": "Pengerjaan / diskusi inti",   "menit": max_waktu - 25},
-            {"label": "Review hasil & wrap-up",       "menit": 15},
-        ]
-    elif max_waktu >= 60:
-        alur = [
-            {"label": "Pembagian tugas",   "menit": 10},
-            {"label": "Pengerjaan bareng", "menit": max_waktu - 20},
-            {"label": "Review hasil",      "menit": 10},
-        ]
+    # Alur based on actual topics (no generic opening/closing)
+    if prioritas:
+        n         = len(prioritas)
+        avail     = max(max_waktu - 5, n * 10)
+        per_topic = max(10, avail // n)
+        alur = [{"label": p, "menit": per_topic} for p in prioritas]
+        alur.append({"label": "Wrap-up & next steps", "menit": 5})
     else:
         alur = [
-            {"label": "Orientasi cepat", "menit": 5},
-            {"label": "Diskusi inti",    "menit": max_waktu - 10},
-            {"label": "Wrap-up",         "menit": 5},
+            {"label": "Diskusi utama", "menit": max_waktu - 5},
+            {"label": "Wrap-up",       "menit": 5},
         ]
 
-    return {"prioritas": prioritas, "kendala": kendala, "alur": alur, "roles": roles}
+    return {
+        "prioritas": prioritas, "kendala": kendala,
+        "alur": alur, "roles": resolve_roles(members),
+    }
 
-
-# ── Design helpers ───────────────────────────────────────────────────────────
-
+# ── CSS ───────────────────────────────────────────────────────────────────────
 CSS = """
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -123,8 +139,7 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],section.main
 .stTextInput input,.stNumberInput input{background:#13131f!important;border:1.5px solid #25253a!important;
   border-radius:12px!important;color:#f0f0ff!important;font-size:14px!important;padding:12px 16px!important;transition:border-color .2s!important}
 .stTextInput input:focus,.stNumberInput input:focus{border-color:#ff6b35!important;box-shadow:0 0 0 3px rgba(255,107,53,.15)!important}
-.stTextInput label,.stNumberInput label{color:#8888aa!important;font-size:12px!important;font-weight:600!important;letter-spacing:.4px!important;text-transform:uppercase!important}
-.stRadio>label{color:#8888aa!important;font-size:12px!important;font-weight:600!important;letter-spacing:.4px!important;text-transform:uppercase!important}
+.stTextInput label,.stNumberInput label,.stRadio>label{color:#8888aa!important;font-size:12px!important;font-weight:600!important;letter-spacing:.4px!important;text-transform:uppercase!important}
 [data-testid="stRadio"]>div{gap:8px!important;flex-direction:column!important}
 [data-testid="stRadio"]>div>label{background:#13131f!important;border:1.5px solid #25253a!important;border-radius:12px!important;
   padding:11px 16px!important;color:#c0c0d8!important;font-size:14px!important;font-weight:500!important;width:100%!important;margin:0!important;transition:all .15s!important;cursor:pointer!important}
@@ -144,81 +159,71 @@ hr{border-color:#1e1e30!important;margin:20px 0!important}
 </style>
 """
 
+# ── HTML helpers ──────────────────────────────────────────────────────────────
 def chip(t):
     return f'<div style="display:inline-block;background:rgba(255,107,53,.12);color:#ff6b35;border-radius:99px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px;">{t}</div>'
-
 def h1(t, size="28px"):
     return f'<h1 style="font-size:{size};font-weight:800;color:#f0f0ff;line-height:1.2;margin:0 0 8px;">{t}</h1>'
-
 def sub(t):
     return f'<p style="color:#8888aa;font-size:14px;line-height:1.7;margin:0 0 28px;">{t}</p>'
-
 def sec(t):
     return f'<p style="font-size:11px;font-weight:700;color:#ff6b35;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 10px;">{t}</p>'
-
 def card(content, bg="#13131f", border="#25253a", pad="20px 18px"):
     return f'<div style="background:{bg};border:1.5px solid {border};border-radius:14px;padding:{pad};margin-bottom:8px;">{content}</div>'
-
 def badge(t):
     return f'<span style="background:rgba(255,107,53,.12);color:#ff6b35;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;">{t}</span>'
-
 def pill(t):
     return f'<div style="display:inline-block;background:#1e1e30;border-radius:99px;padding:5px 14px;font-size:12px;font-weight:700;color:#8888aa;margin-bottom:16px;">{t}</div>'
+def sp(h=8):
+    st.markdown(f"<div style='height:{h}px'></div>", unsafe_allow_html=True)
 
-
-# ── Navigation ───────────────────────────────────────────────────────────────
-
+# ── Navigation ────────────────────────────────────────────────────────────────
 def nav(page):
     st.session_state.page = page
+    try:
+        if st.session_state.get("session_code"):
+            st.query_params["code"] = st.session_state["session_code"]
+        st.query_params["pg"] = page
+    except: pass
     st.rerun()
 
+# ── URL restore on page refresh ───────────────────────────────────────────────
+def init_from_url():
+    if "page" in st.session_state:
+        return
+    params = st.query_params
+    code   = params.get("code", "")
+    page   = params.get("pg",   "")
+    if code:
+        sess = load_session(code)
+        if sess:
+            st.session_state.session_code  = code
+            st.session_state.session_topic = sess["topic"]
+            st.session_state.agenda        = build_agenda(sess)
+            st.session_state.alur_index    = 0
+            if page in ("agenda", "timer"):
+                st.session_state.page = page
+                return
+    st.session_state.page = "landing"
 
-# ── Timer helpers ────────────────────────────────────────────────────────────
-
-def timer_start(seconds):
-    st.session_state.timer_start_ts          = time.time()
-    st.session_state.timer_remaining_at_start = seconds
-    st.session_state.timer_paused             = False
-    st.session_state.timer_paused_remaining   = seconds
-
-def timer_pause():
-    st.session_state.timer_paused_remaining = get_remaining()
-    st.session_state.timer_paused = True
-
-def timer_resume():
-    st.session_state.timer_start_ts           = time.time()
-    st.session_state.timer_remaining_at_start = st.session_state.get("timer_paused_remaining", 0)
-    st.session_state.timer_paused             = False
-
-def get_remaining():
-    if st.session_state.get("timer_paused"):
-        return st.session_state.get("timer_paused_remaining", 0)
-    elapsed = time.time() - st.session_state.get("timer_start_ts", time.time())
-    return max(0, int(st.session_state.get("timer_remaining_at_start", 0) - elapsed))
-
-
-# ── Pages ────────────────────────────────────────────────────────────────────
+# ── Pages ─────────────────────────────────────────────────────────────────────
 
 def page_landing():
+    try: st.query_params.clear()
+    except: pass
     st.markdown("""
     <div style="text-align:center;padding:48px 0 32px;">
         <div style="font-size:52px;margin-bottom:12px;">⚡</div>
         <div style="font-size:36px;font-weight:800;color:#f0f0ff;letter-spacing:-1px;">
-            Sync<span style="color:#ff6b35;">Up</span>
-        </div>
+            Sync<span style="color:#ff6b35;">Up</span></div>
         <p style="color:#8888aa;font-size:14px;margin:10px 0 0;line-height:1.7;">
-            Bantu kelompokmu mulai sesi<br>dengan arah yang jelas.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.button("⚡  Buat Sesi Baru"):
-        nav("buat_step1")
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            Bantu kelompokmu mulai sesi<br>dengan arah yang jelas.</p>
+    </div>""", unsafe_allow_html=True)
+    if st.button("⚡  Buat Sesi Baru"): nav("buat_step1")
+    sp()
     with st.container():
         st.markdown('<div class="ghost">', unsafe_allow_html=True)
-        if st.button("🔗  Gabung Sesi"):
-            nav("gabung")
+        if st.button("🔗  Gabung Sesi"): nav("gabung")
         st.markdown("</div>", unsafe_allow_html=True)
     st.markdown('<div style="text-align:center;margin-top:48px;color:#2e2e44;font-size:12px;">Tidak ada yang jadi pemimpin. Semua berkontribusi.</div>', unsafe_allow_html=True)
 
@@ -227,12 +232,9 @@ def page_buat_step1():
     st.markdown(chip("Langkah 1 / 2"), unsafe_allow_html=True)
     st.markdown(h1("Siapkan Sesi Bareng"), unsafe_allow_html=True)
     st.markdown(sub("Semua anggota akan mengisi fokus masing-masing sebelum sesi dimulai"), unsafe_allow_html=True)
-
     topic = st.text_input("HARI INI MAU BAHAS ATAU KERJAIN APA?",
-                          placeholder="contoh: Latihan statistik / Revisi proposal",
-                          key="input_topic")
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-
+                          placeholder="contoh: Latihan statistik / Revisi proposal", key="input_topic")
+    sp(12)
     if st.button("Lanjut dan Buat Link →"):
         if topic.strip():
             code = gen_code()
@@ -242,8 +244,7 @@ def page_buat_step1():
                 nav("buat_step2")
         else:
             st.error("Isi topik sesi dulu ya!")
-
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    sp()
     with st.container():
         st.markdown('<div class="ghost">', unsafe_allow_html=True)
         if st.button("← Kembali", key="back_b1"): nav("landing")
@@ -253,42 +254,47 @@ def page_buat_step1():
 def page_buat_step2():
     code  = st.session_state.get("session_code", "")
     topic = st.session_state.get("session_topic", "")
-    link  = f"sesi.id/join/{code}"          # display only
 
     st.markdown(chip("Langkah 2 / 2"), unsafe_allow_html=True)
     st.markdown(h1("Ajak Teman Masuk"), unsafe_allow_html=True)
-    st.markdown(sub("Bagikan link ini ke anggota kelompokmu"), unsafe_allow_html=True)
+    st.markdown(sub("Bagikan kode ini ke anggota, lalu kamu juga isi inputmu"), unsafe_allow_html=True)
 
-    st.markdown(sec("Topik sesi"), unsafe_allow_html=True)
+    st.markdown(sec("Topik Sesi"), unsafe_allow_html=True)
     st.markdown(card(f'<span style="color:#f0f0ff;font-size:14px;font-weight:600;">{topic}</span>',
                      bg="rgba(255,107,53,.07)", border="rgba(255,107,53,.18)"), unsafe_allow_html=True)
-
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    st.markdown(sec("Kode Sesi (bagikan ini)"), unsafe_allow_html=True)
+    sp(8)
+    st.markdown(sec("Kode Sesi — Bagikan ke Anggota"), unsafe_allow_html=True)
     st.code(code.upper())
-    st.info(f"💡 Anggota cukup ketik kode **{code.upper()}** waktu gabung sesi.")
+    st.info(f"💡 Anggota buka app → klik **Gabung Sesi** → masukkan kode **{code.upper()}**")
+    sp(16)
 
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    # ── Nama ketua (editable) ──
+    st.markdown(sec("Nama Kamu"), unsafe_allow_html=True)
+    nama_ketua = st.text_input("", placeholder="contoh: Raka", key="ketua_nama", label_visibility="collapsed")
+    sp(8)
 
-    # Reload fresh member count
+    # ── Member count ──
     sess = load_session(code)
     n    = len(sess["members"]) if sess else 0
     if n:
         st.markdown(pill(f"👥 {n} anggota sudah mengisi"), unsafe_allow_html=True)
 
-    if st.button("✍️  Isi Input Sebagai Ketua Tim"):
-        st.session_state.member_nama      = "Ketua Tim"
-        st.session_state.joining_as_ketua = True
-        nav("gabung_form")
+    if st.button("✍️  Isi Input Sesi"):
+        if nama_ketua.strip():
+            st.session_state.member_nama      = nama_ketua.strip()
+            st.session_state.joining_as_ketua = True
+            nav("gabung_form")
+        else:
+            st.error("Isi nama kamu dulu ya!")
 
     if n:
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        sp()
         if st.button("🎯  Lihat Agenda Sesi"):
             st.session_state.agenda     = build_agenda(sess)
             st.session_state.alur_index = 0
             nav("agenda")
 
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    sp()
     with st.container():
         st.markdown('<div class="ghost">', unsafe_allow_html=True)
         if st.button("← Kembali", key="back_b2"): nav("buat_step1")
@@ -298,11 +304,9 @@ def page_buat_step2():
 def page_gabung():
     st.markdown(h1("Gabung Sesi"), unsafe_allow_html=True)
     st.markdown(sub("Masuk dulu sebelum ikut menyusun agenda sesi bareng"), unsafe_allow_html=True)
-
     nama = st.text_input("NAMA", placeholder="contoh: Aby", key="g_nama")
     kode = st.text_input("KODE SESI", placeholder="contoh: abc123", key="g_kode")
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-
+    sp(12)
     if st.button("Selanjutnya →"):
         if nama.strip() and kode.strip():
             raw  = kode.strip().split("/")[-1].lower().strip()
@@ -317,8 +321,7 @@ def page_gabung():
                 st.error("Kode sesi tidak ditemukan. Cek lagi ya!")
         else:
             st.error("Isi nama dan kode sesi dulu!")
-
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    sp()
     with st.container():
         st.markdown('<div class="ghost">', unsafe_allow_html=True)
         if st.button("← Kembali", key="back_g"): nav("landing")
@@ -343,20 +346,25 @@ def page_gabung_form():
                              placeholder="contoh: belum bagi role / deadline mepet", key="f_kendala")
     waktu   = st.number_input("HARI INI KAMU AVAILABLE BERAPA LAMA? (MENIT)",
                                min_value=15, max_value=300, value=60, step=15, key="f_waktu")
-    role    = st.radio("KAMU NYAMAN BANTU DI BAGIAN...",
-                       ["Catet poin penting", "Timer", "Jelasin ide", "Flexible", "Lainnya"],
-                       key="f_role")
 
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    # ── Role with "Lainnya" custom input ──
+    role_options = ["Catet poin penting", "Time keeper", "Jelasin ide", "Flexible", "Lainnya"]
+    role_sel = st.radio("KAMU NYAMAN BANTU DI BAGIAN...", role_options, key="f_role")
+
+    final_role = role_sel
+    if role_sel == "Lainnya":
+        custom = st.text_input("Tulis role kamu:",
+                                placeholder="contoh: Dokumentasi, Desain, Presentasi...",
+                                key="f_role_custom")
+        final_role = custom.strip() if custom.strip() else "Flexible"
+
+    sp(16)
 
     if st.button("Susun Agenda →"):
         if bahas.strip():
             ok = add_member(code, {
-                "nama":    nama,
-                "bahas":   bahas.strip(),
-                "kendala": kendala.strip(),
-                "waktu":   int(waktu),
-                "role":    role,
+                "nama": nama, "bahas": bahas.strip(),
+                "kendala": kendala.strip(), "waktu": int(waktu), "role": final_role,
             })
             if ok:
                 sess = load_session(code)
@@ -366,7 +374,7 @@ def page_gabung_form():
         else:
             st.error("Isi minimal satu topik yang ingin dibahas!")
 
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    sp()
     with st.container():
         st.markdown('<div class="ghost">', unsafe_allow_html=True)
         if st.button("← Kembali", key="back_f"):
@@ -375,17 +383,40 @@ def page_gabung_form():
 
 
 def page_agenda():
-    code    = st.session_state.get("session_code", "")
-    agenda  = st.session_state.get("agenda", {})
+    code   = st.session_state.get("session_code", "")
+    agenda = st.session_state.get("agenda", {})
 
     sess      = load_session(code)
     n_members = len(sess["members"]) if sess else 0
 
-    st.markdown(pill(f"👥  {n_members} ANGGOTA"), unsafe_allow_html=True)
+    # ── Top bar: member count + update button ──
+    col_l, col_r = st.columns([3, 1])
+    with col_l:
+        st.markdown(pill(f"👥  {n_members} ANGGOTA"), unsafe_allow_html=True)
+    with col_r:
+        with st.container():
+            st.markdown('<div class="ghost">', unsafe_allow_html=True)
+            if st.button("🔄 Update", key="btn_update"):
+                fresh = load_session(code)
+                if fresh:
+                    st.session_state.agenda = build_agenda(fresh)
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
     st.markdown(h1("Agenda sesi hari ini"), unsafe_allow_html=True)
     st.markdown(sub("Disusun otomatis dari jawaban semua anggota"), unsafe_allow_html=True)
 
-    # Prioritas
+    # ── Session code badge ──
+    st.markdown(
+        f'<div style="background:#1e1e30;border-radius:12px;padding:12px 18px;margin-bottom:20px;'
+        f'display:flex;justify-content:space-between;align-items:center;">'
+        f'<span style="color:#8888aa;font-size:12px;font-weight:600;letter-spacing:.4px;">KODE SESI</span>'
+        f'<span style="color:#ff6b35;font-size:20px;font-weight:800;letter-spacing:3px;">{code.upper()}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Prioritas ──
     st.markdown(sec("🔥  Prioritas Pembahasan"), unsafe_allow_html=True)
     for item in (agenda.get("prioritas") or ["—"]):
         st.markdown(card(f'<span style="color:#f0f0ff;font-size:14px;font-weight:500;">{item}</span>',
@@ -393,15 +424,15 @@ def page_agenda():
 
     kendala = agenda.get("kendala", [])
     if kendala:
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        sp(4)
         st.markdown(sec("⚠️  Hal yang Perlu Diperjelas"), unsafe_allow_html=True)
         for item in kendala:
             st.markdown(card(f'<span style="color:#f0f0ff;font-size:14px;">{item}</span>',
                              bg="rgba(255,193,7,.06)", border="rgba(255,193,7,.18)"), unsafe_allow_html=True)
 
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+    sp(4)
     st.markdown(sec("⏱️  Saran Alur Sesi"), unsafe_allow_html=True)
-    alur     = agenda.get("alur", [])
+    alur = agenda.get("alur", [])
     alur_rows = "".join([
         f'<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #1e1e30;font-size:13px;">'
         f'<span style="color:#c0c0d8;">{a["label"]}</span>'
@@ -412,7 +443,7 @@ def page_agenda():
 
     roles = agenda.get("roles", {})
     if roles:
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        sp(4)
         st.markdown(sec("👤  Saran Peran Anggota"), unsafe_allow_html=True)
         for nama, role in roles.items():
             st.markdown(card(
@@ -421,15 +452,19 @@ def page_agenda():
                 f'{badge(role)}</div>'
             ), unsafe_allow_html=True)
 
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    sp(20)
 
     if st.button("▶  Mulai Timer"):
         if alur:
-            timer_start(alur[0]["menit"] * 60)
-            st.session_state.alur_index = 0
+            save_timer(code, {
+                "running": True, "paused": False, "alur_index": 0,
+                "start_ts": time.time(),
+                "remaining_at_start": alur[0]["menit"] * 60,
+                "paused_remaining":   alur[0]["menit"] * 60,
+            })
         nav("timer")
 
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    sp()
     with st.container():
         st.markdown('<div class="ghost">', unsafe_allow_html=True)
         if st.button("← Kembali ke Beranda", key="back_a"): nav("landing")
@@ -438,52 +473,68 @@ def page_agenda():
 
 def page_timer():
     import streamlit.components.v1 as components
+    from streamlit_autorefresh import st_autorefresh
 
+    # Sync every 4 seconds — keeps all devices in sync
+    st_autorefresh(interval=4000, limit=None, key="timer_sync")
+
+    code   = st.session_state.get("session_code", "")
     agenda = st.session_state.get("agenda", {})
     alur   = agenda.get("alur", [])
-    idx    = st.session_state.get("alur_index", 0)
-    code   = st.session_state.get("session_code", "")
 
+    # ── Fetch latest from DB (lightweight) ──
+    ts, n_members = load_timer_only(code)
+
+    if ts:
+        idx        = ts.get("alur_index", 0)
+        paused     = ts.get("paused", False)
+        start_ts   = ts.get("start_ts", time.time())
+        rem_start  = ts.get("remaining_at_start", 0)
+        paused_rem = ts.get("paused_remaining", 0)
+    else:
+        idx        = 0
+        paused     = False
+        start_ts   = time.time()
+        rem_start  = alur[0]["menit"] * 60 if alur else 600
+        paused_rem = rem_start
+
+    # ── Selesai screen ──
     if not alur or idx >= len(alur):
         st.markdown("""
         <div style="text-align:center;padding:60px 0 20px;">
             <div style="font-size:56px;margin-bottom:16px;">🎉</div>
             <h1 style="font-size:26px;font-weight:800;color:#f0f0ff;">Sesi Selesai!</h1>
             <p style="color:#8888aa;font-size:14px;margin-top:8px;">Kerja bagus semuanya!</p>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>""", unsafe_allow_html=True)
         if st.button("← Kembali ke Agenda"): nav("agenda")
         return
 
     current   = alur[idx]
-    paused    = st.session_state.get("timer_paused", False)
-    remaining = get_remaining()
     total_sec = current["menit"] * 60
+    remaining = paused_rem if paused else max(0, int(rem_start - (time.time() - start_ts)))
     progress  = 1.0 - (remaining / total_sec) if total_sec else 1.0
 
-    sess      = load_session(code)
-    n_members = len(sess["members"]) if sess else 0
-
+    # ── Header ──
     st.markdown(pill(f"👥  {n_members} ANGGOTA"), unsafe_allow_html=True)
     st.markdown(h1("Agenda sesi hari ini"), unsafe_allow_html=True)
     st.markdown(sub("Disusun otomatis dari jawaban semua anggota"), unsafe_allow_html=True)
 
+    # ── Alur list with active highlight ──
     alur_rows = ""
     for i, a in enumerate(alur):
-        if   i < idx: color, weight, prefix = "#3a3a50", "500", "✓"
-        elif i == idx: color, weight, prefix = "#f0f0ff", "700", "▶"
-        else:          color, weight, prefix = "#8888aa", "400", "○"
+        if   i < idx:  c, w, pre = "#3a3a50", "500", "✓"
+        elif i == idx: c, w, pre = "#f0f0ff", "700", "▶"
+        else:          c, w, pre = "#8888aa", "400", "○"
         alur_rows += (
             f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1e1e30;font-size:13px;">'
-            f'<span style="color:{color};font-weight:{weight};">{prefix}  {a["label"]}</span>'
-            f'<span style="color:{"#ff6b35" if i==idx else color};font-weight:700;">{a["menit"]}m</span></div>'
+            f'<span style="color:{c};font-weight:{w};">{pre}  {a["label"]}</span>'
+            f'<span style="color:{"#ff6b35" if i==idx else c};font-weight:700;">{a["menit"]}m</span></div>'
         )
     st.markdown(card(alur_rows, pad="4px 16px"), unsafe_allow_html=True)
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    sp(8)
 
-    mins_d = remaining // 60
-    secs_d = remaining % 60
-
+    # ── JS countdown timer ──
+    mins_d, secs_d = remaining // 60, remaining % 60
     components.html(f"""
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&display=swap" rel="stylesheet">
     <div style="text-align:center;padding:28px 24px;background:rgba(255,107,53,.07);
@@ -494,10 +545,10 @@ def page_timer():
         <div id="st" style="font-size:12px;color:#8888aa;margin-top:10px;">{"⏸  Dijeda" if paused else "▶  Berjalan"}</div>
     </div>
     <script>
-        var rem={remaining},paused={'true' if paused else 'false'};
+        var rem={remaining}, paused={'true' if paused else 'false'};
         function fmt(n){{return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');}}
         document.getElementById('t').textContent=fmt(rem);
-        if(!paused){{var iv=setInterval(function(){{
+        if(!paused && rem>0){{var iv=setInterval(function(){{
             if(rem>0){{rem--;document.getElementById('t').textContent=fmt(rem);}}
             else{{clearInterval(iv);document.getElementById('st').textContent='⏰ Waktu habis';}}
         }},1000);}}
@@ -505,32 +556,42 @@ def page_timer():
     """, height=175)
 
     st.progress(min(progress, 1.0))
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    sp(16)
 
+    # ── Controls ──
     col1, col2 = st.columns(2)
     with col1:
         with st.container():
             st.markdown('<div class="ghost">', unsafe_allow_html=True)
             if st.button("▶  Lanjutkan" if paused else "⏸  Pause", key="btn_pause"):
-                timer_resume() if paused else timer_pause()
+                if paused:
+                    save_timer(code, {**(ts or {}), "paused": False,
+                                      "start_ts": time.time(), "remaining_at_start": paused_rem})
+                else:
+                    save_timer(code, {**(ts or {}), "paused": True, "paused_remaining": remaining})
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
     with col2:
-        if st.button("Selesai ✓" if idx >= len(alur)-1 else "Next →", key="btn_next"):
+        is_last = idx >= len(alur) - 1
+        if st.button("Selesai ✓" if is_last else "Next →", key="btn_next"):
             nxt = idx + 1
-            st.session_state.alur_index = nxt
             if nxt < len(alur):
-                timer_start(alur[nxt]["menit"] * 60)
+                save_timer(code, {
+                    "running": True, "paused": False, "alur_index": nxt,
+                    "start_ts": time.time(),
+                    "remaining_at_start": alur[nxt]["menit"] * 60,
+                    "paused_remaining":   alur[nxt]["menit"] * 60,
+                })
+            else:
+                save_timer(code, {"running": False, "paused": False, "alur_index": nxt,
+                                  "start_ts": time.time(), "remaining_at_start": 0, "paused_remaining": 0})
             st.rerun()
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
-
+# ── Main ──────────────────────────────────────────────────────────────────────
 def main():
     st.markdown(CSS, unsafe_allow_html=True)
-    if "page" not in st.session_state:
-        st.session_state.page = "landing"
-
+    init_from_url()
     {
         "landing":     page_landing,
         "buat_step1":  page_buat_step1,
@@ -539,6 +600,6 @@ def main():
         "gabung_form": page_gabung_form,
         "agenda":      page_agenda,
         "timer":       page_timer,
-    }.get(st.session_state.page, page_landing)()
+    }.get(st.session_state.get("page", "landing"), page_landing)()
 
 main()
