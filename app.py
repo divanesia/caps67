@@ -329,13 +329,21 @@ hr{{
 # ── Theme Colors ──────────────────────────────────────────────────────────────
 def theme_colors():
 
-    dark = st.session_state.theme == "dark"
+   def theme_colors():
+
+    dark = st.session_state.get("theme", "dark") == "dark"
 
     return {
-        "text": "#f0f0ff" if dark else "#1a1a24",
-        "subtext": "#8888aa" if dark else "#666680",
-        "card": "#13131f" if dark else "#ffffff",
+        "bg": "#09090f" if dark else "#f6f7fb",
+
+        "card_bg": "#13131f" if dark else "#ffffff",
+
         "border": "#25253a" if dark else "#dcdcec",
+
+        "text": "#f0f0ff" if dark else "#111827",
+
+        "subtext": "#8888aa" if dark else "#667085",
+
         "secondary": "#1e1e30" if dark else "#ececf5",
     }
 
