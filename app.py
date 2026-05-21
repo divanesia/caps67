@@ -5,6 +5,18 @@ import time
 import hashlib
 from streamlit_autorefresh import st_autorefresh
 
+def theme_colors():
+    dark = st.session_state.get("theme", "dark") == "dark"
+
+    return {
+        "bg": "#09090f" if dark else "#f6f7fb",
+        "card_bg": "#13131f" if dark else "#ffffff",
+        "border": "#25253a" if dark else "#dcdcec",
+        "text": "#f0f0ff" if dark else "#111827",
+        "subtext": "#8888aa" if dark else "#667085",
+        "secondary": "#1e1e30" if dark else "#ececf5",
+    }
+
 st.set_page_config(
     page_title="SyncUp", page_icon="⚡",
     layout="centered", initial_sidebar_state="collapsed",
@@ -695,6 +707,9 @@ def page_agenda():
 
     with col_r:
         with st.container():
+            colors = theme_colors()
+            text = colors["text"]
+            subtext = colors["subtext"]
             st.markdown('<div class="ghost">', unsafe_allow_html=True)
 
             btn_text = (
@@ -732,6 +747,9 @@ def page_agenda():
     )
 
     # ── Prioritas ──
+    colors = theme_colors()
+    text = colors["text"]
+    subtext = colors["subtext"]
     st.markdown(sec("🔥  Prioritas Pembahasan"), unsafe_allow_html=True)
     for item in (agenda.get("prioritas") or ["—"]):
         st.markdown(card(f'<span style="color:{text};font-size:14px;font-weight:500;">{item}</span>',
@@ -742,6 +760,9 @@ def page_agenda():
         sp(4)
         st.markdown(sec("⚠️  Hal yang Perlu Diperjelas"), unsafe_allow_html=True)
         for item in kendala:
+            colors = theme_colors()
+            text = colors["text"]
+            subtext = colors["subtext"]
             st.markdown(card(f'<span style="color:{text};font-size:14px;">{item}</span>',
                              bg="rgba(255,193,7,.06)", border="rgba(255,193,7,.18)"), unsafe_allow_html=True)
 
@@ -761,6 +782,9 @@ def page_agenda():
         sp(4)
         st.markdown(sec("👤  Saran Peran Anggota"), unsafe_allow_html=True)
         for nama, role in roles.items():
+            colors = theme_colors()
+            text = colors["text"]
+            subtext = colors["subtext"]
             st.markdown(card(
                 f'<div style="display:flex;align-items:center;gap:12px;">'
                 f'<span style="font-weight:700;font-size:14px;color:{text};min-width:80px;">{nama}</span>'
@@ -815,6 +839,9 @@ def page_timer():
 
     # ── Selesai screen ──
     if not alur or idx >= len(alur):
+        colors = theme_colors()
+        text = colors["text"]
+        subtext = colors["subtext"]
         st.markdown("""
         <div style="text-align:center;padding:60px 0 20px;">
             <div style="font-size:56px;margin-bottom:16px;">🎉</div>
@@ -849,6 +876,9 @@ def page_timer():
     sp(8)
 
     # ── JS countdown timer ──
+    colors = theme_colors()
+    text = colors["text"]
+    subtext = colors["subtext"]
     mins_d, secs_d = remaining // 60, remaining % 60
     components.html(f"""
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@800&display=swap" rel="stylesheet">
