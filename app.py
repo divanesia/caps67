@@ -420,7 +420,7 @@ def page_agenda():
         )
 
     # ── Top bar: member count + update button ──
-    col_l, col_r = st.columns([4, 1])
+    col_l, col_r = st.columns([2, 1])
 
     with col_l:
         st.markdown(
