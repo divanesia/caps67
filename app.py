@@ -326,26 +326,6 @@ hr{{
 
 </style>
 """
-# ── Theme Colors ──────────────────────────────────────────────────────────────
-def theme_colors():
-
-   def theme_colors():
-
-    dark = st.session_state.get("theme", "dark") == "dark"
-
-    return {
-        "bg": "#09090f" if dark else "#f6f7fb",
-
-        "card_bg": "#13131f" if dark else "#ffffff",
-
-        "border": "#25253a" if dark else "#dcdcec",
-
-        "text": "#f0f0ff" if dark else "#111827",
-
-        "subtext": "#8888aa" if dark else "#667085",
-
-        "secondary": "#1e1e30" if dark else "#ececf5",
-    }
 
 # ── HTML helpers ──────────────────────────────────────────────────────────────
 def chip(t):
@@ -547,6 +527,8 @@ def page_buat_step2():
     st.markdown(sub("Bagikan kode ini ke anggota, lalu kamu juga isi inputmu"), unsafe_allow_html=True)
 
     st.markdown(sec("Topik Sesi"), unsafe_allow_html=True)
+    colors = theme_colors()
+    text = colors["text"]
     st.markdown(card(f'<span style="color:{text};font-size:14px;font-weight:600;">{topic}</span>',
                      bg="rgba(255,107,53,.07)", border="rgba(255,107,53,.18)"), unsafe_allow_html=True)
     sp(8)
@@ -787,11 +769,11 @@ def page_agenda():
         unsafe_allow_html=True,
     )
     # ── Prioritas ──
-    colors = theme_colors()
-    text = colors["text"]
-    subtext = colors["subtext"]
     st.markdown(sec("🔥  Prioritas Pembahasan"), unsafe_allow_html=True)
     for item in (agenda.get("prioritas") or ["—"]):
+        colors = theme_colors()
+        text = colors["text"]
+        subtext = colors["subtext"]
         st.markdown(card(f'<span style="color:{text};font-size:14px;font-weight:500;">{item}</span>',
                          bg="rgba(255,107,53,.07)", border="rgba(255,107,53,.18)"), unsafe_allow_html=True)
 
