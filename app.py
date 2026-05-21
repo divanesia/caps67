@@ -737,11 +737,14 @@ def page_agenda():
     )
 
     # ── Session code badge ──
+    colors = theme_colors()
+    text = colors["text"]
+    subtext = colors["subtext"]
     st.markdown(
         f'<div style="background:#1e1e30;border-radius:12px;padding:12px 18px;margin-bottom:20px;'
         f'display:flex;justify-content:space-between;align-items:center;">'
         f'<span style="color:{subtext};font-size:12px;font-weight:600;letter-spacing:.4px;">KODE SESI</span>'
-        f'<span style="color:#ff6b35;font-size:20px;font-weight:800;letter-spacing:3px;">{code.upper()}</span>'
+        f'<span style="color:{text};font-size:20px;font-weight:800;letter-spacing:3px;">{code.upper()}</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
