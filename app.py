@@ -841,41 +841,15 @@ def page_timer():
         subtext = colors["subtext"]
 
         st.markdown(
-        f"""
-        <div style='
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            justify-content:center;
-            text-align:center;
-            padding:80px 0 40px;
-        '>
-
-            <div style='font-size:64px;margin-bottom:20px;'>
-                🎉
+            f"""
+            <div style='text-align:center;padding:80px 0 40px;'>
+                <div style='font-size:64px;'>🎉</div>
+                <h1 style='color:{text};margin-top:20px;'>Sesi Selesai!</h1>
+                <p style='color:{subtext};'>Kerja bagus semuanya!</p>
             </div>
-
-            <h1 style='
-                font-size:30px;
-                font-weight:800;
-                color:{text};
-                margin:0;
-            '>
-                Sesi Selesai!
-            </h1>
-
-            <p style='
-                color:{subtext};
-                font-size:15px;
-                margin-top:12px;
-            '>
-                Kerja bagus semuanya!
-            </p>
-
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+            """,
+            unsafe_allow_html=True
+        )
 
         if st.button("🏠 Kembali ke Beranda"):
             for key in [
