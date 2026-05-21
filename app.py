@@ -420,7 +420,7 @@ def page_agenda():
         )
 
     # ── Top bar: member count + update button ──
-    col_l, col_r = st.columns([3, 1])
+    col_l, col_r = st.columns([4, 1])
 
     with col_l:
         st.markdown(
@@ -433,7 +433,7 @@ def page_agenda():
             st.markdown('<div class="ghost">', unsafe_allow_html=True)
 
             btn_text = (
-                f"🟢 (Update {new_members} anggota baru)"
+                f"🟢 Update({new_members} anggota baru)"
                 if new_members > 0
                 else "🔄 Update"
             )
