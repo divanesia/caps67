@@ -940,7 +940,7 @@ def main():
     st.markdown(get_css(), unsafe_allow_html=True)
 
     # ── Theme Toggle ─────────────────────────────────────────
-    top1, top2 = st.columns([4,1])
+    top1, top2 = st.columns([8,1])
 
     with top2:
 
