@@ -452,7 +452,8 @@ def pill(t):
         font-size:12px;
         font-weight:700;
         color:{c["subtext"]};
-        margin-bottom:16px;">
+        margin-bottom:16px;
+    ">
         {t}
     </div>
     '''
