@@ -433,7 +433,7 @@ def page_agenda():
             st.markdown('<div class="ghost">', unsafe_allow_html=True)
 
             btn_text = (
-                f"🟢 ({new_members} anggota baru)"
+                f"🔄 Update"
                 if new_members > 0
                 else "🔄 Update"
             )
