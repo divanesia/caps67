@@ -3,6 +3,7 @@ import random
 import string
 import time
 import hashlib
+from streamlit_autorefresh import st_autorefresh
 
 st.set_page_config(
     page_title="SyncUp", page_icon="⚡",
@@ -389,22 +390,71 @@ def page_agenda():
     sess      = load_session(code)
     n_members = len(sess["members"]) if sess else 0
 
+    # Auto refresh tiap 10 detik
+    st_autorefresh(interval=10000, key="agenda_refresh")
+
+    # Simpan jumlah anggota terakhir yang pernah dilihat
+    if "last_seen_members" not in st.session_state:
+        st.session_state.last_seen_members = n_members
+
+    new_members = n_members - st.session_state.last_seen_members
+
+    # Notifikasi jika ada anggota baru
+    if new_members > 0:
+        st.toast(f"🎉 {new_members} anggota baru bergabung!")
+
+        st.markdown(
+            f"""
+            <div style="
+                background:rgba(255,107,53,.1);
+                border:1px solid rgba(255,107,53,.3);
+                border-radius:12px;
+                padding:12px 16px;
+                margin-bottom:16px;
+                color:#ff6b35;
+                font-weight:600;">
+                🔄 Ada {new_members} anggota baru. Klik Update untuk memperbarui agenda.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
     # ── Top bar: member count + update button ──
     col_l, col_r = st.columns([3, 1])
+
     with col_l:
-        st.markdown(pill(f"👥  {n_members} ANGGOTA"), unsafe_allow_html=True)
+        st.markdown(
+            pill(f"👥 {n_members} ANGGOTA"),
+            unsafe_allow_html=True,
+        )
+
     with col_r:
         with st.container():
             st.markdown('<div class="ghost">', unsafe_allow_html=True)
-            if st.button("🔄 Update", key="btn_update"):
+
+            btn_text = (
+                f"🔴 Update ({new_members} baru)"
+                if new_members > 0
+                else "🔄 Update"
+            )
+
+            if st.button(btn_text, key="btn_update"):
                 fresh = load_session(code)
+
                 if fresh:
                     st.session_state.agenda = build_agenda(fresh)
+
+                st.session_state.last_seen_members = n_members
+
                 st.rerun()
+
             st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown(h1("Agenda sesi hari ini"), unsafe_allow_html=True)
-    st.markdown(sub("Disusun otomatis dari jawaban semua anggota"), unsafe_allow_html=True)
+    st.markdown(
+        sub("Disusun otomatis dari jawaban semua anggota"),
+        unsafe_allow_html=True,
+    )
 
     # ── Session code badge ──
     st.markdown(
