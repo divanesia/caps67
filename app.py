@@ -691,7 +691,7 @@ def page_agenda():
         )
  
     # ── Top bar: member count + update button ──
-    col_l, col_r = st.columns([6, 1])
+    col_l, col_r = st.columns([4, 1])
     with col_l:
         st.markdown(pill(f"👥 {n_members} ANGGOTA"), unsafe_allow_html=True)
     with col_r:
