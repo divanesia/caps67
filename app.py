@@ -737,46 +737,46 @@ def page_agenda():
     )
 
     # ── Session code badge ──
-colors = theme_colors()
+    colors = theme_colors()
 
-text      = colors["text"]
-subtext   = colors["subtext"]
-card_bg   = colors["card_bg"]
-border    = colors["border"]
+    text      = colors["text"]
+    subtext   = colors["subtext"]
+    card_bg   = colors["card_bg"]
+    border    = colors["border"]
 
-st.markdown(
-    f'''
-    <div style="
-        background:{card_bg};
-        border:1.5px solid {border};
-        border-radius:12px;
-        padding:12px 18px;
-        margin-bottom:20px;
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-    ">
-        <span style="
-            color:{subtext};
-            font-size:12px;
-            font-weight:600;
-            letter-spacing:.4px;
+    st.markdown(
+        f'''
+        <div style="
+            background:{card_bg};
+            border:1.5px solid {border};
+            border-radius:12px;
+            padding:12px 18px;
+            margin-bottom:20px;
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
         ">
-            KODE SESI
-        </span>
+            <span style="
+                color:{subtext};
+                font-size:12px;
+                font-weight:600;
+                letter-spacing:.4px;
+            ">
+                KODE SESI
+            </span>
 
-        <span style="
-            color:#ff6b35;
-            font-size:20px;
-            font-weight:800;
-            letter-spacing:3px;
-        ">
-            {code.upper()}
-        </span>
-    </div>
-    ''',
-    unsafe_allow_html=True,
-)
+            <span style="
+                color:#ff6b35;
+                font-size:20px;
+                font-weight:800;
+                letter-spacing:3px;
+            ">
+                {code.upper()}
+            </span>
+        </div>
+        ''',
+        unsafe_allow_html=True,
+    )
     # ── Prioritas ──
     colors = theme_colors()
     text = colors["text"]
