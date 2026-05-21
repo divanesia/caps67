@@ -820,7 +820,7 @@ def page_timer():
  
     # ── Fetch latest from DB (lightweight) ──
     ts, n_members = load_timer_only(code)
- 
+
     if ts:
         idx        = ts.get("alur_index", 0)
         paused     = ts.get("paused", False)
@@ -833,39 +833,38 @@ def page_timer():
         start_ts   = time.time()
         rem_start  = alur[0]["menit"] * 60 if alur else 600
         paused_rem = rem_start
- 
+
     # ── Selesai screen ──
-        if not alur or idx >= len(alur):
-            colors  = theme_colors()
-            text    = colors["text"]
-            subtext = colors["subtext"]
+    if not alur or idx >= len(alur):
+        colors  = theme_colors()
+        text    = colors["text"]
+        subtext = colors["subtext"]
 
-            st.markdown(f"""
-            <div style="text-align:center;padding:60px 0 20px;">
-                <div style="font-size:56px;margin-bottom:16px;">🎉</div>
-                <h1 style="font-size:26px;font-weight:800;color:{text};">Sesi Selesai!</h1>
-                <p style="color:{subtext};font-size:14px;margin-top:8px;">
-                    Kerja bagus semuanya!
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="text-align:center;padding:60px 0 20px;">
+            <div style="font-size:56px;margin-bottom:16px;">🎉</div>
+            <h1 style="font-size:26px;font-weight:800;color:{text};">Sesi Selesai!</h1>
+            <p style="color:{subtext};font-size:14px;margin-top:8px;">
+                Kerja bagus semuanya!
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
-            if st.button("🏠 Kembali ke Beranda"):
-                # bersihkan state sesi
-                for key in [
-                    "session_code",
-                    "session_topic",
-                    "agenda",
-                    "alur_index",
-                    "member_nama",
-                    "joining_as_ketua",
-                    "last_seen_members"
-                ]:
-                    st.session_state.pop(key, None)
+        if st.button("🏠 Kembali ke Beranda"):
+            for key in [
+                "session_code",
+                "session_topic",
+                "agenda",
+                "alur_index",
+                "member_nama",
+                "joining_as_ketua",
+                "last_seen_members"
+            ]:
+                st.session_state.pop(key, None)
 
-                nav("landing")
+            nav("landing")
 
-            return
+        return
  
     current   = alur[idx]
     total_sec = current["menit"] * 60
