@@ -269,7 +269,7 @@ h6{{
     padding:14px 24px!important;
     font-size:15px!important;
     font-weight:700!important;
-    width:fit-content!important;
+    width:100%!important;
 }}
 
 .ghost .stButton>button{{
