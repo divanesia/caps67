@@ -146,7 +146,7 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],section.main
   padding:11px 16px!important;color:#c0c0d8!important;font-size:14px!important;font-weight:500!important;width:100%!important;margin:0!important;transition:all .15s!important;cursor:pointer!important}
 [data-testid="stRadio"]>div>label:has(input:checked){border-color:#ff6b35!important;background:rgba(255,107,53,.1)!important;color:#ff6b35!important}
 .stButton>button{background:linear-gradient(135deg,#ff6b35,#e85420)!important;color:#fff!important;border:none!important;
-  border-radius:14px!important;padding:14px 24px!important;font-size:15px!important;font-weight:700!important;width:100%!important;
+  border-radius:14px!important;padding:14px 24px!important;font-size:15px!important;font-weight:700!important;width:fit-content!important;
   letter-spacing:.2px!important;transition:all .2s!important;box-shadow:0 4px 20px rgba(255,107,53,.25)!important}
 .stButton>button:hover{opacity:.9!important;transform:translateY(-1px)!important}
 .ghost .stButton>button{background:#13131f!important;border:1.5px solid #25253a!important;color:#8888aa!important;box-shadow:none!important}
@@ -433,7 +433,7 @@ def page_agenda():
             st.markdown('<div class="ghost">', unsafe_allow_html=True)
 
             btn_text = (
-                f"🔴 Update ({new_members} baru)"
+                f"🟢 Update ({new_members} baru)"
                 if new_members > 0
                 else "🔄 Update"
             )
