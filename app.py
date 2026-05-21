@@ -269,7 +269,7 @@ h6{{
     padding:14px 24px!important;
     font-size:15px!important;
     font-weight:700!important;
-    width:fit-content!important;
+    width:100%!important;
 }}
 
 .ghost .stButton>button{{
@@ -691,7 +691,7 @@ def page_agenda():
         )
  
     # ── Top bar: member count + update button ──
-    col_l, col_r = st.columns([2, 1])
+    col_l, col_r = st.columns([4, 1])
     with col_l:
         st.markdown(pill(f"👥 {n_members} ANGGOTA"), unsafe_allow_html=True)
     with col_r:
