@@ -391,7 +391,11 @@ def sec(t):
     </p>
     '''
 
-def card(content, bg="#ffffff", border="#e4e7ec", pad="20px 18px"):
+def card(content, bg=None, border=None, pad="20px 18px"):
+    c      = theme_colors()
+    bg     = bg     or c["card_bg"]
+    border = border or c["border"]
+    text   = c["text"]
     return f'''
     <div style="
         background:{bg};
@@ -399,7 +403,7 @@ def card(content, bg="#ffffff", border="#e4e7ec", pad="20px 18px"):
         border-radius:14px;
         padding:{pad};
         margin-bottom:8px;
-        color:#111827;
+        color:{text};
     ">
         {content}
     </div>
@@ -654,23 +658,22 @@ def page_gabung_form():
 def page_agenda():
     code   = st.session_state.get("session_code", "")
     agenda = st.session_state.get("agenda", {})
-
+ 
     sess      = load_session(code)
     n_members = len(sess["members"]) if sess else 0
-
+ 
     # Auto refresh tiap 10 detik
     st_autorefresh(interval=10000, key="agenda_refresh")
-
+ 
     # Simpan jumlah anggota terakhir yang pernah dilihat
     if "last_seen_members" not in st.session_state:
         st.session_state.last_seen_members = n_members
-
+ 
     new_members = n_members - st.session_state.last_seen_members
-
+ 
     # Notifikasi jika ada anggota baru
     if new_members > 0:
         st.toast(f"🎉 {new_members} anggota baru bergabung!")
-
         st.markdown(
             f"""
             <div style="
@@ -686,55 +689,32 @@ def page_agenda():
             """,
             unsafe_allow_html=True,
         )
-
+ 
     # ── Top bar: member count + update button ──
     col_l, col_r = st.columns([2, 1])
-
     with col_l:
-        st.markdown(
-            pill(f"👥 {n_members} ANGGOTA"),
-            unsafe_allow_html=True,
-        )
-
+        st.markdown(pill(f"👥 {n_members} ANGGOTA"), unsafe_allow_html=True)
     with col_r:
         with st.container():
-            colors = theme_colors()
-            text = colors["text"]
-            subtext = colors["subtext"]
             st.markdown('<div class="ghost">', unsafe_allow_html=True)
-
-            btn_text = (
-                f"🔄 Update"
-                if new_members > 0
-                else "🔄 Update"
-            )
-
-            if st.button(btn_text, key="btn_update"):
+            if st.button("🔄 Update", key="btn_update"):
                 fresh = load_session(code)
-
                 if fresh:
                     st.session_state.agenda = build_agenda(fresh)
-
                 st.session_state.last_seen_members = n_members
-
                 st.rerun()
-
             st.markdown("</div>", unsafe_allow_html=True)
-
+ 
     st.markdown(h1("Agenda sesi hari ini"), unsafe_allow_html=True)
-    st.markdown(
-        sub("Disusun otomatis dari jawaban semua anggota"),
-        unsafe_allow_html=True,
-    )
-
+    st.markdown(sub("Disusun otomatis dari jawaban semua anggota"), unsafe_allow_html=True)
+ 
     # ── Session code badge ──
-    colors = theme_colors()
-
-    text      = colors["text"]
-    subtext   = colors["subtext"]
-    card_bg   = colors["card_bg"]
-    border    = colors["border"]
-
+    colors  = theme_colors()
+    text    = colors["text"]
+    subtext = colors["subtext"]
+    card_bg = colors["card_bg"]
+    border  = colors["border"]
+ 
     st.markdown(
         f'''
         <div style="
@@ -747,74 +727,69 @@ def page_agenda():
             justify-content:space-between;
             align-items:center;
         ">
-            <span style="
-                color:{subtext};
-                font-size:12px;
-                font-weight:600;
-                letter-spacing:.4px;
-            ">
+            <span style="color:{subtext};font-size:12px;font-weight:600;letter-spacing:.4px;">
                 KODE SESI
             </span>
-
-            <span style="
-                color:#ff6b35;
-                font-size:20px;
-                font-weight:800;
-                letter-spacing:3px;
-            ">
+            <span style="color:#ff6b35;font-size:20px;font-weight:800;letter-spacing:3px;">
                 {code.upper()}
             </span>
         </div>
         ''',
         unsafe_allow_html=True,
     )
+ 
     # ── Prioritas ──
     st.markdown(sec("🔥  Prioritas Pembahasan"), unsafe_allow_html=True)
     for item in (agenda.get("prioritas") or ["—"]):
         colors = theme_colors()
-        text = colors["text"]
-        subtext = colors["subtext"]
-        st.markdown(card(f'<span style="color:{text};font-size:14px;font-weight:500;">{item}</span>',
-                         bg="rgba(255,107,53,.07)", border="rgba(255,107,53,.18)"), unsafe_allow_html=True)
-
+        text   = colors["text"]
+        st.markdown(card(
+            f'<span style="color:{text};font-size:14px;font-weight:500;">{item}</span>',
+            bg="rgba(255,107,53,.07)", border="rgba(255,107,53,.18)"
+        ), unsafe_allow_html=True)
+ 
     kendala = agenda.get("kendala", [])
     if kendala:
         sp(4)
         st.markdown(sec("⚠️  Hal yang Perlu Diperjelas"), unsafe_allow_html=True)
         for item in kendala:
             colors = theme_colors()
-            text = colors["text"]
-            subtext = colors["subtext"]
-            st.markdown(card(f'<span style="color:{text};font-size:14px;">{item}</span>',
-                             bg="rgba(255,193,7,.06)", border="rgba(255,193,7,.18)"), unsafe_allow_html=True)
-
+            text   = colors["text"]
+            st.markdown(card(
+                f'<span style="color:{text};font-size:14px;">{item}</span>',
+                bg="rgba(255,193,7,.06)", border="rgba(255,193,7,.18)"
+            ), unsafe_allow_html=True)
+ 
     sp(4)
     st.markdown(sec("⏱️  Saran Alur Sesi"), unsafe_allow_html=True)
-    alur = agenda.get("alur", [])
-    alur_rows = "".join([
-        f'<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #1e1e30;font-size:13px;">'
-        f'<span style="color:#c0c0d8;">{a["label"]}</span>'
+    alur       = agenda.get("alur", [])
+    colors     = theme_colors()
+    row_border = colors["border"]
+    row_text   = colors["subtext"]
+    alur_rows  = "".join([
+        f'<div style="display:flex;justify-content:space-between;padding:9px 0;'
+        f'border-bottom:1px solid {row_border};font-size:13px;">'
+        f'<span style="color:{row_text};">{a["label"]}</span>'
         f'<span style="color:#ff6b35;font-weight:700;">{a["menit"]}m</span></div>'
         for a in alur
     ])
     st.markdown(card(alur_rows, pad="4px 16px"), unsafe_allow_html=True)
-
+ 
     roles = agenda.get("roles", {})
     if roles:
         sp(4)
         st.markdown(sec("👤  Saran Peran Anggota"), unsafe_allow_html=True)
         for nama, role in roles.items():
             colors = theme_colors()
-            text = colors["text"]
-            subtext = colors["subtext"]
+            text   = colors["text"]
             st.markdown(card(
                 f'<div style="display:flex;align-items:center;gap:12px;">'
                 f'<span style="font-weight:700;font-size:14px;color:{text};min-width:80px;">{nama}</span>'
                 f'{badge(role)}</div>'
             ), unsafe_allow_html=True)
-
+ 
     sp(20)
-
+ 
     if st.button("▶  Mulai Timer"):
         if alur:
             save_timer(code, {
@@ -824,28 +799,28 @@ def page_agenda():
                 "paused_remaining":   alur[0]["menit"] * 60,
             })
         nav("timer")
-
+ 
     sp()
     with st.container():
         st.markdown('<div class="ghost">', unsafe_allow_html=True)
         if st.button("← Kembali ke Beranda", key="back_a"): nav("landing")
         st.markdown("</div>", unsafe_allow_html=True)
 
-
+ 
 def page_timer():
     import streamlit.components.v1 as components
     from streamlit_autorefresh import st_autorefresh
-
+ 
     # Sync every 4 seconds — keeps all devices in sync
     st_autorefresh(interval=4000, limit=None, key="timer_sync")
-
+ 
     code   = st.session_state.get("session_code", "")
     agenda = st.session_state.get("agenda", {})
     alur   = agenda.get("alur", [])
-
+ 
     # ── Fetch latest from DB (lightweight) ──
     ts, n_members = load_timer_only(code)
-
+ 
     if ts:
         idx        = ts.get("alur_index", 0)
         paused     = ts.get("paused", False)
@@ -858,13 +833,13 @@ def page_timer():
         start_ts   = time.time()
         rem_start  = alur[0]["menit"] * 60 if alur else 600
         paused_rem = rem_start
-
+ 
     # ── Selesai screen ──
     if not alur or idx >= len(alur):
-        colors = theme_colors()
-        text = colors["text"]
+        colors  = theme_colors()
+        text    = colors["text"]
         subtext = colors["subtext"]
-        st.markdown("""
+        st.markdown(f"""
         <div style="text-align:center;padding:60px 0 20px;">
             <div style="font-size:56px;margin-bottom:16px;">🎉</div>
             <h1 style="font-size:26px;font-weight:800;color:{text};">Sesi Selesai!</h1>
@@ -872,34 +847,40 @@ def page_timer():
         </div>""", unsafe_allow_html=True)
         if st.button("← Kembali ke Agenda"): nav("agenda")
         return
-
+ 
     current   = alur[idx]
     total_sec = current["menit"] * 60
     remaining = paused_rem if paused else max(0, int(rem_start - (time.time() - start_ts)))
     progress  = 1.0 - (remaining / total_sec) if total_sec else 1.0
-
+ 
     # ── Header ──
     st.markdown(pill(f"👥  {n_members} ANGGOTA"), unsafe_allow_html=True)
     st.markdown(h1("Agenda sesi hari ini"), unsafe_allow_html=True)
     st.markdown(sub("Disusun otomatis dari jawaban semua anggota"), unsafe_allow_html=True)
-
+ 
     # ── Alur list with active highlight ──
+    colors     = theme_colors()
+    card_bg    = colors["card_bg"]
+    row_border = colors["border"]
+    subtext    = colors["subtext"]
+ 
     alur_rows = ""
     for i, a in enumerate(alur):
-        if   i < idx:  c, w, pre = "#3a3a50", "500", "✓"
-        elif i == idx: c, w, pre = "#f0f0ff", "700", "▶"
-        else:          c, w, pre = "#8888aa", "400", "○"
+        if   i < idx:  c, w, pre = subtext,    "500", "✓"
+        elif i == idx: c, w, pre = colors["text"], "700", "▶"
+        else:          c, w, pre = subtext,    "400", "○"
         alur_rows += (
-            f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1e1e30;font-size:13px;">'
+            f'<div style="display:flex;justify-content:space-between;padding:10px 0;'
+            f'border-bottom:1px solid {row_border};font-size:13px;">'
             f'<span style="color:{c};font-weight:{w};">{pre}  {a["label"]}</span>'
             f'<span style="color:{"#ff6b35" if i==idx else c};font-weight:700;">{a["menit"]}m</span></div>'
         )
     st.markdown(card(alur_rows, pad="4px 16px"), unsafe_allow_html=True)
     sp(8)
-
+ 
     # ── JS countdown timer ──
-    colors = theme_colors()
-    text = colors["text"]
+    colors  = theme_colors()
+    text    = colors["text"]
     subtext = colors["subtext"]
     mins_d, secs_d = remaining // 60, remaining % 60
     components.html(f"""
@@ -921,10 +902,10 @@ def page_timer():
         }},1000);}}
     </script>
     """, height=175)
-
+ 
     st.progress(min(progress, 1.0))
     sp(16)
-
+ 
     # ── Controls ──
     col1, col2 = st.columns(2)
     with col1:
@@ -953,7 +934,6 @@ def page_timer():
                 save_timer(code, {"running": False, "paused": False, "alur_index": nxt,
                                   "start_ts": time.time(), "remaining_at_start": 0, "paused_remaining": 0})
             st.rerun()
-
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
