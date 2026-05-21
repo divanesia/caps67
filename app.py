@@ -283,23 +283,139 @@ hr{{
 
 </style>
 """
+# ── Theme Colors ──────────────────────────────────────────────────────────────
+def theme_colors():
+
+    dark = st.session_state.theme == "dark"
+
+    return {
+        "text": "#f0f0ff" if dark else "#1a1a24",
+        "subtext": "#8888aa" if dark else "#666680",
+        "card": "#13131f" if dark else "#ffffff",
+        "border": "#25253a" if dark else "#dcdcec",
+        "secondary": "#1e1e30" if dark else "#ececf5",
+    }
+
+# ── HTML helpers ──────────────────────────────────────────────────────────────
 # ── HTML helpers ──────────────────────────────────────────────────────────────
 def chip(t):
-    return f'<div style="display:inline-block;background:rgba(255,107,53,.12);color:#ff6b35;border-radius:99px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px;">{t}</div>'
+
+    c = theme_colors()
+
+    return f'''
+    <div style="
+        display:inline-block;
+        background:rgba(255,107,53,.12);
+        color:#ff6b35;
+        border-radius:99px;
+        padding:4px 14px;
+        font-size:11px;
+        font-weight:700;
+        letter-spacing:1.5px;
+        text-transform:uppercase;
+        margin-bottom:16px;">
+        {t}
+    </div>
+    '''
+
 def h1(t, size="28px"):
-    return f'<h1 style="font-size:{size};font-weight:800;color:#f0f0ff;line-height:1.2;margin:0 0 8px;">{t}</h1>'
+
+    c = theme_colors()
+
+    return f'''
+    <h1 style="
+        font-size:{size};
+        font-weight:800;
+        color:{c["text"]};
+        line-height:1.2;
+        margin:0 0 8px;">
+        {t}
+    </h1>
+    '''
+
 def sub(t):
-    return f'<p style="color:#8888aa;font-size:14px;line-height:1.7;margin:0 0 28px;">{t}</p>'
+
+    c = theme_colors()
+
+    return f'''
+    <p style="
+        color:{c["subtext"]};
+        font-size:14px;
+        line-height:1.7;
+        margin:0 0 28px;">
+        {t}
+    </p>
+    '''
+
 def sec(t):
-    return f'<p style="font-size:11px;font-weight:700;color:#ff6b35;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 10px;">{t}</p>'
-def card(content, bg="#13131f", border="#25253a", pad="20px 18px"):
-    return f'<div style="background:{bg};border:1.5px solid {border};border-radius:14px;padding:{pad};margin-bottom:8px;">{content}</div>'
+
+    return f'''
+    <p style="
+        font-size:11px;
+        font-weight:700;
+        color:#ff6b35;
+        letter-spacing:1.5px;
+        text-transform:uppercase;
+        margin:0 0 10px;">
+        {t}
+    </p>
+    '''
+
+def card(content, bg=None, border=None, pad="20px 18px"):
+
+    c = theme_colors()
+
+    bg = bg or c["card"]
+    border = border or c["border"]
+
+    return f'''
+    <div style="
+        background:{bg};
+        border:1.5px solid {border};
+        border-radius:14px;
+        padding:{pad};
+        margin-bottom:8px;">
+        {content}
+    </div>
+    '''
+
 def badge(t):
-    return f'<span style="background:rgba(255,107,53,.12);color:#ff6b35;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;">{t}</span>'
+
+    return f'''
+    <span style="
+        background:rgba(255,107,53,.12);
+        color:#ff6b35;
+        border-radius:6px;
+        padding:3px 10px;
+        font-size:12px;
+        font-weight:600;">
+        {t}
+    </span>
+    '''
+
 def pill(t):
-    return f'<div style="display:inline-block;background:#1e1e30;border-radius:99px;padding:5px 14px;font-size:12px;font-weight:700;color:#8888aa;margin-bottom:16px;">{t}</div>'
+
+    c = theme_colors()
+
+    return f'''
+    <div style="
+        display:inline-block;
+        background:{c["secondary"]};
+        border-radius:99px;
+        padding:5px 14px;
+        font-size:12px;
+        font-weight:700;
+        color:{c["subtext"]};
+        margin-bottom:16px;">
+        {t}
+    </div>
+    '''
+
 def sp(h=8):
-    st.markdown(f"<div style='height:{h}px'></div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div style='height:{h}px'></div>",
+        unsafe_allow_html=True
+    )
 
 # ── Navigation ────────────────────────────────────────────────────────────────
 def nav(page):
