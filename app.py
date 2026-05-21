@@ -10,6 +10,17 @@ st.set_page_config(
     layout="centered", initial_sidebar_state="collapsed",
 )
 
+# ── Theme State ───────────────────────────────────────────────────────────────
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+def toggle_theme():
+    st.session_state.theme = (
+        "light"
+        if st.session_state.theme == "dark"
+        else "dark"
+    )
+
 # ── Supabase ──────────────────────────────────────────────────────────────────
 @st.cache_resource
 def get_sb():
@@ -128,38 +139,150 @@ def build_agenda(sess):
         "alur": alur, "roles": resolve_roles(members),
     }
 
-# ── CSS ───────────────────────────────────────────────────────────────────────
-CSS = """
+# ── Dynamic CSS ───────────────────────────────────────────────────────────────
+def get_css():
+
+    dark = st.session_state.theme == "dark"
+
+    bg          = "#09090f" if dark else "#f6f7fb"
+    card_bg     = "#13131f" if dark else "#ffffff"
+    border      = "#25253a" if dark else "#dcdcec"
+    text        = "#f0f0ff" if dark else "#1a1a24"
+    subtext     = "#8888aa" if dark else "#666680"
+    secondary   = "#1e1e30" if dark else "#ececf5"
+
+    return f"""
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
 <style>
-#MainMenu,footer,header,[data-testid="stToolbar"],
-[data-testid="stDecoration"],[data-testid="stStatusWidget"]{display:none!important}
-html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"],section.main{background:#09090f!important}
-[data-testid="block-container"]{max-width:460px!important;padding:24px 16px 80px!important;margin:0 auto!important}
-*,*::before,*::after{font-family:'Plus Jakarta Sans',sans-serif!important;box-sizing:border-box}
-.stTextInput input,.stNumberInput input{background:#13131f!important;border:1.5px solid #25253a!important;
-  border-radius:12px!important;color:#f0f0ff!important;font-size:14px!important;padding:12px 16px!important;transition:border-color .2s!important}
-.stTextInput input:focus,.stNumberInput input:focus{border-color:#ff6b35!important;box-shadow:0 0 0 3px rgba(255,107,53,.15)!important}
-.stTextInput label,.stNumberInput label,.stRadio>label{color:#8888aa!important;font-size:12px!important;font-weight:600!important;letter-spacing:.4px!important;text-transform:uppercase!important}
-[data-testid="stRadio"]>div{gap:8px!important;flex-direction:column!important}
-[data-testid="stRadio"]>div>label{background:#13131f!important;border:1.5px solid #25253a!important;border-radius:12px!important;
-  padding:11px 16px!important;color:#c0c0d8!important;font-size:14px!important;font-weight:500!important;width:100%!important;margin:0!important;transition:all .15s!important;cursor:pointer!important}
-[data-testid="stRadio"]>div>label:has(input:checked){border-color:#ff6b35!important;background:rgba(255,107,53,.1)!important;color:#ff6b35!important}
-.stButton>button{background:linear-gradient(135deg,#ff6b35,#e85420)!important;color:#fff!important;border:none!important;
-  border-radius:14px!important;padding:14px 24px!important;font-size:15px!important;font-weight:700!important;width:fit-content!important;
-  letter-spacing:.2px!important;transition:all .2s!important;box-shadow:0 4px 20px rgba(255,107,53,.25)!important}
-.stButton>button:hover{opacity:.9!important;transform:translateY(-1px)!important}
-.ghost .stButton>button{background:#13131f!important;border:1.5px solid #25253a!important;color:#8888aa!important;box-shadow:none!important}
-.stNumberInput button{background:#13131f!important;border:1.5px solid #25253a!important;border-radius:8px!important;color:#c0c0d8!important}
-.stProgress>div>div>div>div{background:#ff6b35!important;border-radius:99px!important}
-.stProgress>div>div>div{background:#1e1e30!important;border-radius:99px!important}
-[data-testid="stAlert"]{background:rgba(255,107,53,.08)!important;border:1px solid rgba(255,107,53,.2)!important;border-radius:12px!important;color:#f0f0ff!important}
-[data-testid="stCode"] pre{background:#13131f!important;border:1.5px dashed #25253a!important;border-radius:12px!important;color:#8888aa!important;font-size:13px!important;padding:12px 16px!important}
-hr{border-color:#1e1e30!important;margin:20px 0!important}
-[data-testid="column"]{padding:0 4px!important}
+
+#MainMenu,
+footer,
+header,
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"]{{
+    display:none!important
+}}
+
+html,
+body,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+section.main{{
+    background:{bg}!important;
+    transition:all .25s ease;
+}}
+
+[data-testid="block-container"]{{
+    max-width:460px!important;
+    padding:24px 16px 80px!important;
+    margin:0 auto!important
+}}
+
+*,*::before,*::after{{
+    font-family:'Plus Jakarta Sans',sans-serif!important;
+    box-sizing:border-box
+}}
+
+.stTextInput input,
+.stNumberInput input{{
+    background:{card_bg}!important;
+    border:1.5px solid {border}!important;
+    border-radius:12px!important;
+    color:{text}!important;
+    font-size:14px!important;
+    padding:12px 16px!important;
+}}
+
+.stTextInput label,
+.stNumberInput label,
+.stRadio>label{{
+    color:{subtext}!important;
+    font-size:12px!important;
+    font-weight:600!important;
+    letter-spacing:.4px!important;
+    text-transform:uppercase!important
+}}
+
+[data-testid="stRadio"]>div{{
+    gap:8px!important;
+    flex-direction:column!important
+}}
+
+[data-testid="stRadio"]>div>label{{
+    background:{card_bg}!important;
+    border:1.5px solid {border}!important;
+    border-radius:12px!important;
+    padding:11px 16px!important;
+    color:{subtext}!important;
+}}
+
+[data-testid="stRadio"]>div>label:has(input:checked){{
+    border-color:#ff6b35!important;
+    background:rgba(255,107,53,.1)!important;
+    color:#ff6b35!important
+}}
+
+.stButton>button{{
+    background:linear-gradient(135deg,#ff6b35,#e85420)!important;
+    color:#fff!important;
+    border:none!important;
+    border-radius:14px!important;
+    padding:14px 24px!important;
+    font-size:15px!important;
+    font-weight:700!important;
+    width:fit-content!important;
+}}
+
+.ghost .stButton>button{{
+    background:{card_bg}!important;
+    border:1.5px solid {border}!important;
+    color:{subtext}!important;
+    box-shadow:none!important
+}}
+
+.stNumberInput button{{
+    background:{card_bg}!important;
+    border:1.5px solid {border}!important;
+    border-radius:8px!important;
+    color:{text}!important
+}}
+
+.stProgress>div>div>div>div{{
+    background:#ff6b35!important;
+    border-radius:99px!important
+}}
+
+.stProgress>div>div>div{{
+    background:{secondary}!important;
+    border-radius:99px!important
+}}
+
+[data-testid="stAlert"]{{
+    background:rgba(255,107,53,.08)!important;
+    border:1px solid rgba(255,107,53,.2)!important;
+    border-radius:12px!important;
+    color:{text}!important
+}}
+
+[data-testid="stCode"] pre{{
+    background:{card_bg}!important;
+    border:1.5px dashed {border}!important;
+    border-radius:12px!important;
+    color:{subtext}!important;
+}}
+
+hr{{
+    border-color:{border}!important
+}}
+
+[data-testid="column"]{{
+    padding:0 4px!important
+}}
+
 </style>
 """
-
 # ── HTML helpers ──────────────────────────────────────────────────────────────
 def chip(t):
     return f'<div style="display:inline-block;background:rgba(255,107,53,.12);color:#ff6b35;border-radius:99px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px;">{t}</div>'
@@ -640,7 +763,22 @@ def page_timer():
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
-    st.markdown(CSS, unsafe_allow_html=True)
+    st.markdown(get_css(), unsafe_allow_html=True)
+
+    # ── Theme Toggle ─────────────────────────────────────────
+    top1, top2 = st.columns([6,1])
+
+    with top2:
+
+        icon = (
+            "☀️"
+            if st.session_state.theme == "dark"
+            else "🌙"
+        )
+
+        if st.button(icon, key="theme_toggle"):
+            toggle_theme()
+            st.rerun()
     init_from_url()
     {
         "landing":     page_landing,
