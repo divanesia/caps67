@@ -147,8 +147,11 @@ def get_css():
     bg          = "#09090f" if dark else "#f6f7fb"
     card_bg     = "#13131f" if dark else "#ffffff"
     border      = "#25253a" if dark else "#dcdcec"
-    text        = "#f0f0ff" if dark else "#1a1a24"
-    subtext     = "#8888aa" if dark else "#666680"
+
+    # TEXT
+    text        = "#f0f0ff" if dark else "#111827"
+    subtext     = "#8888aa" if dark else "#667085"
+
     secondary   = "#1e1e30" if dark else "#ececf5"
 
     return f"""
@@ -174,6 +177,21 @@ section.main{{
     transition:all .25s ease;
 }}
 
+/* FORCE ALL TEXT */
+body,
+p,
+span,
+label,
+div,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6{{
+    color:{text}!important;
+}}
+
 [data-testid="block-container"]{{
     max-width:460px!important;
     padding:24px 16px 80px!important;
@@ -193,6 +211,11 @@ section.main{{
     color:{text}!important;
     font-size:14px!important;
     padding:12px 16px!important;
+}}
+
+.stTextInput input::placeholder,
+.stNumberInput input::placeholder{{
+    color:{subtext}!important;
 }}
 
 .stTextInput label,
@@ -215,7 +238,9 @@ section.main{{
     border:1.5px solid {border}!important;
     border-radius:12px!important;
     padding:11px 16px!important;
-    color:{subtext}!important;
+    color:{text}!important;
+    font-size:14px!important;
+    font-weight:500!important;
 }}
 
 [data-testid="stRadio"]>div>label:has(input:checked){{
@@ -270,7 +295,7 @@ section.main{{
     background:{card_bg}!important;
     border:1.5px dashed {border}!important;
     border-radius:12px!important;
-    color:{subtext}!important;
+    color:{text}!important;
 }}
 
 hr{{
@@ -279,6 +304,12 @@ hr{{
 
 [data-testid="column"]{{
     padding:0 4px!important
+}}
+
+/* CARD TEXT FIX */
+.card-text,
+.card-text * {{
+    color:{text}!important;
 }}
 
 </style>
@@ -296,7 +327,6 @@ def theme_colors():
         "secondary": "#1e1e30" if dark else "#ececf5",
     }
 
-# ── HTML helpers ──────────────────────────────────────────────────────────────
 # ── HTML helpers ──────────────────────────────────────────────────────────────
 def chip(t):
 
@@ -361,20 +391,16 @@ def sec(t):
     </p>
     '''
 
-def card(content, bg=None, border=None, pad="20px 18px"):
-
-    c = theme_colors()
-
-    bg = bg or c["card"]
-    border = border or c["border"]
-
+def card(content, bg="#ffffff", border="#e4e7ec", pad="20px 18px"):
     return f'''
     <div style="
         background:{bg};
         border:1.5px solid {border};
         border-radius:14px;
         padding:{pad};
-        margin-bottom:8px;">
+        margin-bottom:8px;
+        color:#111827;
+    ">
         {content}
     </div>
     '''
@@ -454,9 +480,9 @@ def page_landing():
     st.markdown("""
     <div style="text-align:center;padding:48px 0 32px;">
         <div style="font-size:52px;margin-bottom:12px;">⚡</div>
-        <div style="font-size:36px;font-weight:800;color:#f0f0ff;letter-spacing:-1px;">
+        <div style="font-size:36px;font-weight:800;color:{text};letter-spacing:-1px;">
             Sync<span style="color:#ff6b35;">Up</span></div>
-        <p style="color:#8888aa;font-size:14px;margin:10px 0 0;line-height:1.7;">
+        <p style="color:{subtext};font-size:14px;margin:10px 0 0;line-height:1.7;">
             Bantu kelompokmu mulai sesi<br>dengan arah yang jelas.</p>
     </div>""", unsafe_allow_html=True)
     if st.button("⚡  Buat Sesi Baru"): nav("buat_step1")
@@ -500,7 +526,7 @@ def page_buat_step2():
     st.markdown(sub("Bagikan kode ini ke anggota, lalu kamu juga isi inputmu"), unsafe_allow_html=True)
 
     st.markdown(sec("Topik Sesi"), unsafe_allow_html=True)
-    st.markdown(card(f'<span style="color:#f0f0ff;font-size:14px;font-weight:600;">{topic}</span>',
+    st.markdown(card(f'<span style="color:{text};font-size:14px;font-weight:600;">{topic}</span>',
                      bg="rgba(255,107,53,.07)", border="rgba(255,107,53,.18)"), unsafe_allow_html=True)
     sp(8)
     st.markdown(sec("Kode Sesi — Bagikan ke Anggota"), unsafe_allow_html=True)
@@ -699,7 +725,7 @@ def page_agenda():
     st.markdown(
         f'<div style="background:#1e1e30;border-radius:12px;padding:12px 18px;margin-bottom:20px;'
         f'display:flex;justify-content:space-between;align-items:center;">'
-        f'<span style="color:#8888aa;font-size:12px;font-weight:600;letter-spacing:.4px;">KODE SESI</span>'
+        f'<span style="color:{subtext};font-size:12px;font-weight:600;letter-spacing:.4px;">KODE SESI</span>'
         f'<span style="color:#ff6b35;font-size:20px;font-weight:800;letter-spacing:3px;">{code.upper()}</span>'
         f'</div>',
         unsafe_allow_html=True,
@@ -708,7 +734,7 @@ def page_agenda():
     # ── Prioritas ──
     st.markdown(sec("🔥  Prioritas Pembahasan"), unsafe_allow_html=True)
     for item in (agenda.get("prioritas") or ["—"]):
-        st.markdown(card(f'<span style="color:#f0f0ff;font-size:14px;font-weight:500;">{item}</span>',
+        st.markdown(card(f'<span style="color:{text};font-size:14px;font-weight:500;">{item}</span>',
                          bg="rgba(255,107,53,.07)", border="rgba(255,107,53,.18)"), unsafe_allow_html=True)
 
     kendala = agenda.get("kendala", [])
@@ -716,7 +742,7 @@ def page_agenda():
         sp(4)
         st.markdown(sec("⚠️  Hal yang Perlu Diperjelas"), unsafe_allow_html=True)
         for item in kendala:
-            st.markdown(card(f'<span style="color:#f0f0ff;font-size:14px;">{item}</span>',
+            st.markdown(card(f'<span style="color:{text};font-size:14px;">{item}</span>',
                              bg="rgba(255,193,7,.06)", border="rgba(255,193,7,.18)"), unsafe_allow_html=True)
 
     sp(4)
@@ -737,7 +763,7 @@ def page_agenda():
         for nama, role in roles.items():
             st.markdown(card(
                 f'<div style="display:flex;align-items:center;gap:12px;">'
-                f'<span style="font-weight:700;font-size:14px;color:#f0f0ff;min-width:80px;">{nama}</span>'
+                f'<span style="font-weight:700;font-size:14px;color:{text};min-width:80px;">{nama}</span>'
                 f'{badge(role)}</div>'
             ), unsafe_allow_html=True)
 
@@ -792,8 +818,8 @@ def page_timer():
         st.markdown("""
         <div style="text-align:center;padding:60px 0 20px;">
             <div style="font-size:56px;margin-bottom:16px;">🎉</div>
-            <h1 style="font-size:26px;font-weight:800;color:#f0f0ff;">Sesi Selesai!</h1>
-            <p style="color:#8888aa;font-size:14px;margin-top:8px;">Kerja bagus semuanya!</p>
+            <h1 style="font-size:26px;font-weight:800;color:{text};">Sesi Selesai!</h1>
+            <p style="color:{subtext};font-size:14px;margin-top:8px;">Kerja bagus semuanya!</p>
         </div>""", unsafe_allow_html=True)
         if st.button("← Kembali ke Agenda"): nav("agenda")
         return
@@ -829,9 +855,9 @@ def page_timer():
     <div style="text-align:center;padding:28px 24px;background:rgba(255,107,53,.07);
          border:1.5px solid rgba(255,107,53,.22);border-radius:16px;">
         <div style="font-size:11px;font-weight:700;color:#ff6b35;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">{current['label']}</div>
-        <div id="t" style="font-size:68px;font-weight:800;color:#f0f0ff;font-family:'Plus Jakarta Sans',sans-serif;
+        <div id="t" style="font-size:68px;font-weight:800;color:{text};font-family:'Plus Jakarta Sans',sans-serif;
              letter-spacing:-3px;line-height:1;font-variant-numeric:tabular-nums;">{mins_d:02d}:{secs_d:02d}</div>
-        <div id="st" style="font-size:12px;color:#8888aa;margin-top:10px;">{"⏸  Dijeda" if paused else "▶  Berjalan"}</div>
+        <div id="st" style="font-size:12px;color:{subtext};margin-top:10px;">{"⏸  Dijeda" if paused else "▶  Berjalan"}</div>
     </div>
     <script>
         var rem={remaining}, paused={'true' if paused else 'false'};
